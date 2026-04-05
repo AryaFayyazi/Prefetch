@@ -1,0 +1,18 @@
+# ignore everything by default
+*
+# then opt-in the specific files we want
+!.gitignore
+!moe_cp_prefetch/
+moe_cp_prefetch/*
+!moe_cp_prefetch/__init__.py
+!moe_cp_prefetch/config.py
+!moe_cp_prefetch/data.py
+!moe_cp_prefetch/qwen_moe_postattn_adapter.py
+!moe_cp_prefetch/pipeline_qwen_signals.py
+!moe_cp_prefetch/pipeline_qwen_dual.py
+!run_experiment_qwen_dual.py
+!run_experiment_qwen_signals.py
+!run_qwen_dual.slurm
+!run_qwen_signals.slurm
+!output_qwen_dual.log
+!output_qwen_signals.log

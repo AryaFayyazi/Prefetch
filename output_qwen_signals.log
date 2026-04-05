@@ -1,0 +1,193 @@
+Host         : kaveh.usc.edu
+SLURM job    : 42105
+CUDA devices : 0
+name, memory.total [MiB], memory.free [MiB]
+NVIDIA RTX A6000, 49140 MiB, 48666 MiB
+/projects/nullanet/miniconda3/envs/cgrpo/lib/python3.10/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+[sig] Loading tokenizer from /models/models--Qwen--Qwen1.5-MoE-A2.7B/snapshots/1a758c50ecb6350748b9ce0a99d2352fd9fc11c9
+[sig] Loading model → dtype=bfloat16, device=cuda
+Loading checkpoint shards:   0%|          | 0/8 [00:00<?, ?it/s]Loading checkpoint shards:  12%|█▎        | 1/8 [00:00<00:04,  1.47it/s]Loading checkpoint shards:  25%|██▌       | 2/8 [00:01<00:03,  1.51it/s]Loading checkpoint shards:  38%|███▊      | 3/8 [00:02<00:03,  1.47it/s]Loading checkpoint shards:  50%|█████     | 4/8 [00:02<00:02,  1.38it/s]Loading checkpoint shards:  62%|██████▎   | 5/8 [00:03<00:02,  1.38it/s]Loading checkpoint shards:  75%|███████▌  | 6/8 [00:04<00:01,  1.36it/s]Loading checkpoint shards:  88%|████████▊ | 7/8 [00:05<00:00,  1.35it/s]Loading checkpoint shards: 100%|██████████| 8/8 [00:05<00:00,  1.56it/s]
+[sig] Model loaded.  Params: 14.32B
+Using the latest cached version of the dataset since allenai/c4 couldn't be found on the Hugging Face Hub (offline mode is enabled).
+Found the latest cached dataset configuration 'en' at /datasets/allenai___c4/en/0.0.0/1588ec454efa1a09f29cd18ddd04fe05fc8653a2 (last modified on Thu Feb 26 13:49:03 2026).
+Using the latest cached version of the dataset since allenai/c4 couldn't be found on the Hugging Face Hub (offline mode is enabled).
+Found the latest cached dataset configuration 'en' at /datasets/allenai___c4/en/0.0.0/1588ec454efa1a09f29cd18ddd04fe05fc8653a2 (last modified on Thu Feb 26 13:49:03 2026).
+[sig] Hooked 24 decoder layers.  23 cross-layer pairs.
+[sig] Signal hyper-params: ema_beta=0.3  ema_lambda=0.3  bd_alpha=0.7  n_gamma=400  eps_grid=[0.0, 0.05000000074505806, 0.10000000149011612, 0.15000000596046448, 0.20000000298023224, 0.25, 0.30000001192092896, 0.4000000059604645, 0.5]
+
+[sig] === Calibration pass (streaming — O(1) RAM) ===
+  [cal] batch=50  records=588800
+  [cal] batch=100  records=1177600
+  [cal] batch=150  records=1766400
+  [cal] batch=200  records=2355200
+  [cal] batch=250  records=2944000
+  [cal] batch=300  records=3532800
+  [cal] batch=350  records=4121600
+  [cal] batch=400  records=4710400
+  [cal] batch=450  records=5299200
+  [cal] batch=500  records=5888000
+  [cal] batch=550  records=6476800
+  [cal] batch=600  records=7065600
+  [cal] batch=650  records=7654400
+  [cal] batch=700  records=8243200
+  [cal] batch=750  records=8832000
+  [cal] batch=800  records=9420800
+  [cal] batch=850  records=10009600
+  [cal] batch=900  records=10598400
+  [cal] batch=950  records=11187200
+  [cal] batch=1000  records=11776000
+  [cal] batch=1050  records=12364800
+  [cal] batch=1100  records=12953600
+  [cal] batch=1150  records=13542400
+  [cal] batch=1200  records=14131200
+  [cal] batch=1250  records=14720000
+  [cal] batch=1300  records=15308800
+  [cal] batch=1350  records=15897600
+  [cal] batch=1400  records=16486400
+  [cal] batch=1450  records=17075200
+  [cal] batch=1500  records=17664000
+  [cal] batch=1550  records=18252800
+  [cal] batch=1600  records=18841600
+  [cal] batch=1650  records=19430400
+  [cal] batch=1700  records=20019200
+  [cal] batch=1750  records=20608000
+[sig] Calibration pass done in 14776s
+[sig] n_cal tokens per layer ≈ 910848
+
+[sig] Signal E — per-layer optimal ε (by cal rank-4 hit rate):
+  Layer     0.00  0.05  0.10  0.15  0.20  0.25  0.30  0.40  0.50  best_ε
+  00→01    0.2939  0.2923  0.2923  0.2924  0.2927  0.2925  0.2921  0.2922  0.2927  ε=0.00
+  01→02    0.5067  0.5074  0.5097  0.5111  0.5122  0.5123  0.5116  0.5086  0.5034  ε=0.25
+  02→03    0.5947  0.5950  0.5944  0.5928  0.5904  0.5879  0.5845  0.5767  0.5665  ε=0.05
+  03→04    0.6076  0.6024  0.6002  0.5967  0.5929  0.5883  0.5823  0.5708  0.5576  ε=0.00
+  04→05    0.6476  0.6482  0.6472  0.6455  0.6432  0.6399  0.6363  0.6264  0.6151  ε=0.05
+  05→06    0.6247  0.6258  0.6259  0.6250  0.6236  0.6218  0.6198  0.6144  0.6069  ε=0.10
+  06→07    0.7534  0.7537  0.7532  0.7517  0.7496  0.7463  0.7421  0.7319  0.7190  ε=0.05
+  07→08    0.7309  0.7292  0.7283  0.7262  0.7234  0.7198  0.7151  0.7044  0.6918  ε=0.00
+  08→09    0.7486  0.7485  0.7479  0.7462  0.7433  0.7400  0.7358  0.7251  0.7128  ε=0.00
+  09→10    0.7567  0.7557  0.7543  0.7526  0.7499  0.7463  0.7420  0.7315  0.7201  ε=0.00
+  10→11    0.7805  0.7800  0.7791  0.7776  0.7752  0.7722  0.7687  0.7602  0.7495  ε=0.00
+  11→12    0.7912  0.7896  0.7876  0.7850  0.7817  0.7777  0.7731  0.7631  0.7513  ε=0.00
+  12→13    0.7857  0.7838  0.7822  0.7800  0.7774  0.7739  0.7697  0.7605  0.7501  ε=0.00
+  13→14    0.7790  0.7779  0.7765  0.7746  0.7724  0.7694  0.7657  0.7575  0.7474  ε=0.00
+  14→15    0.7904  0.7907  0.7896  0.7875  0.7849  0.7817  0.7780  0.7687  0.7575  ε=0.05
+  15→16    0.8353  0.8343  0.8317  0.8280  0.8230  0.8169  0.8103  0.7949  0.7781  ε=0.00
+  16→17    0.8206  0.8179  0.8148  0.8108  0.8058  0.7995  0.7922  0.7765  0.7593  ε=0.00
+  17→18    0.8132  0.8101  0.8059  0.7996  0.7916  0.7826  0.7721  0.7491  0.7246  ε=0.00
+  18→19    0.8298  0.8280  0.8234  0.8168  0.8083  0.7987  0.7874  0.7638  0.7389  ε=0.00
+  19→20    0.8291  0.8273  0.8240  0.8188  0.8122  0.8045  0.7951  0.7751  0.7544  ε=0.00
+  20→21    0.8416  0.8389  0.8354  0.8296  0.8221  0.8133  0.8030  0.7809  0.7582  ε=0.00
+  21→22    0.7860  0.7857  0.7845  0.7817  0.7771  0.7717  0.7650  0.7499  0.7326  ε=0.00
+  22→23    0.5705  0.5684  0.5631  0.5575  0.5512  0.5448  0.5385  0.5251  0.5104  ε=0.00
+
+[sig] Best ε per layer: [0.0, 0.25, 0.05000000074505806, 0.0, 0.05000000074505806, 0.10000000149011612, 0.05000000074505806, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05000000074505806, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+[sig] Per-layer γ* by signal:
+  Layer         γ*-A      γ*-B      γ*-C      γ*-D     γ*-BD
+  00→01      0.4764    0.4789    0.6575    0.4715    0.4665
+  01→02      0.4987    0.2631    0.4715    0.2755    0.2531
+  02→03      0.5583    0.2804    0.4293    0.2804    0.2730
+  03→04      0.5037    0.2631    0.4094    0.2730    0.2556
+  04→05      0.4615    0.2755    0.3797    0.2804    0.2705
+  05→06      0.3970    0.3077    0.3846    0.2928    0.2978
+  06→07      0.5583    0.3350    0.3648    0.3077    0.3201
+  07→08      0.4863    0.3251    0.3648    0.3052    0.3127
+  08→09      0.5831    0.3226    0.3697    0.2978    0.3077
+  09→10      0.5757    0.3400    0.3573    0.3077    0.3251
+  10→11      0.5533    0.3474    0.3549    0.3152    0.3325
+  11→12      0.5012    0.3474    0.3499    0.3226    0.3350
+  12→13      0.5136    0.3673    0.3524    0.3424    0.3549
+  13→14      0.4888    0.3921    0.3623    0.3648    0.3797
+  14→15      0.5087    0.4169    0.3623    0.3747    0.3995
+  15→16      0.5161    0.3995    0.3573    0.3598    0.3821
+  16→17      0.5459    0.4020    0.3697    0.3598    0.3846
+  17→18      0.6302    0.3846    0.3772    0.3499    0.3648
+  18→19      0.5757    0.3400    0.3821    0.3102    0.3251
+  19→20      0.5781    0.3449    0.3846    0.3176    0.3300
+  20→21      0.5484    0.3350    0.3846    0.3077    0.3201
+  21→22      0.4541    0.3499    0.3921    0.3251    0.3350
+  22→23      0.4268    0.4466    0.4814    0.4789    0.4392
+
+[sig] Calibration rank-4 hit rates:
+  [A] cal rank-4 hit rate = 0.4120
+  [B] cal rank-4 hit rate = 0.7182
+  [C] cal rank-4 hit rate = 0.3949
+  [D] cal rank-4 hit rate = 0.5979
+  [BD] cal rank-4 hit rate = 0.6989
+  [E ] cal rank-4 hit rate = 0.7185  (per-layer best ε)
+
+[sig] === Test pass (streaming) ===
+  [test] batch=50  records=588800
+  [test] batch=100  records=1177600
+  [test] batch=150  records=1766400
+  [test] batch=200  records=2355200
+[sig] Test pass done in 219s
+
+  ══ A: baseline  (h_post_attn + in_LN) ══
+  Adp avg|S|=9.10  E[L]=0.0997  P(full)=0.5030
+  Rank hits:  r1=0.9383  r2=0.8059  r3=0.6146  r4=0.4108
+  Cov@k  :  c@1=0.9383  c@2=0.7723  c@3=0.4999  c@4=0.1985
+
+  ══ B: post-MoE  (h_in + pa_LN) ══
+  Adp avg|S|=4.79  E[L]=0.0997  P(full)=0.4734
+  Rank hits:  r1=0.9952  r2=0.9717  r3=0.9022  r4=0.7183
+  Cov@k  :  c@1=0.9952  c@2=0.9684  c@3=0.8834  c@4=0.6513
+
+  ══ C: B + causal EMA momentum ══
+  Adp avg|S|=7.02  E[L]=0.1012  P(full)=0.4018
+  Rank hits:  r1=0.9520  r2=0.8121  r3=0.6011  r4=0.3910
+  Cov@k  :  c@1=0.9520  c@2=0.7863  c@3=0.5017  c@4=0.1951
+
+  ══ D: velocity extrapolation ══
+  Adp avg|S|=5.18  E[L]=0.1005  P(full)=0.4546
+  Rank hits:  r1=0.9859  r2=0.9389  r3=0.8210  r4=0.5947
+  Cov@k  :  c@1=0.9859  c@2=0.9296  c@3=0.7775  c@4=0.4692
+
+  ══ BD: 0.70·B + 0.30·D (prob-space) ══
+  Adp avg|S|=4.74  E[L]=0.1000  P(full)=0.4642
+  Rank hits:  r1=0.9948  r2=0.9690  r3=0.8931  r4=0.6983
+  Cov@k  :  c@1=0.9948  c@2=0.9654  c@3=0.8722  c@4=0.6240
+
+  ══ E: vel-corrected logit blend (novel) ══
+  Adp avg|S|=4.78  E[L]=0.0998  P(full)=0.4724
+  Rank hits:  r1=0.9953  r2=0.9719  r3=0.9025  r4=0.7185
+  Cov@k  :  c@1=0.9953  c@2=0.9687  c@3=0.8838  c@4=0.6518
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+[sig] SIGNAL COMPARISON  (α=0.1  K=4  E=60  n_cal≈910848  β=0.3  λ=0.3  bd_α=0.7)
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  Signal                                       Adp|S|   Adp E[L]   P(full)      r1      r2      r3      r4     c@1     c@2     c@3     c@4
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  A: baseline  (h_post_attn + in_LN)       9.10     0.0997    0.5030  0.9383  0.8059  0.6146  0.4108  0.9383  0.7723  0.4999  0.1985
+  B: post-MoE  (h_in + pa_LN)              4.79     0.0997    0.4734  0.9952  0.9717  0.9022  0.7183  0.9952  0.9684  0.8834  0.6513
+  C: B + causal EMA momentum               7.02     0.1012    0.4018  0.9520  0.8121  0.6011  0.3910  0.9520  0.7863  0.5017  0.1951
+  D: velocity extrapolation                5.18     0.1005    0.4546  0.9859  0.9389  0.8210  0.5947  0.9859  0.9296  0.7775  0.4692
+  BD: 0.70·B + 0.30·D (prob-space)         4.74     0.1000    0.4642  0.9948  0.9690  0.8931  0.6983  0.9948  0.9654  0.8722  0.6240
+  E: vel-corrected logit blend (novel)     4.78     0.0998    0.4724  0.9953  0.9719  0.9025  0.7185  0.9953  0.9687  0.8838  0.6518
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  Key:
+  Signal A : BASELINE  h_post_attn_l  + input_LN_{l+1}  (wrong h AND wrong LN)
+  Signal B : POST-MoE  h_in_{l+1}     + post_attn_LN_{l+1}  (correct both)
+  Signal C : B + CAUSAL EMA PRIOR  (routing locality / intra-sequence coherence)
+             β=0.3  λ=0.3
+  Signal D : VELOCITY  h_extrap = 2·h_in_{l+1} - h_in_l  (residual momentum)
+  Signal BD: BLEND  0.70·B + 0.30·D  (prob-space)
+  Signal E : VEL-CORRECTED LOGIT BLEND  z_ε=(1-ε)·z_B + ε·z_D → softmax
+             per-layer ε selected on calibration by rank-4 hit rate (NOVEL)
+
+  Adp|S|   = mean set size under adaptive CRC  (CRC guarantee: E[L] ≤ α)
+  r-k      = P(expert at predicted rank k is one of the true K)
+  c@k      = P(all top-k predicted experts are true experts)
+  Streaming: probs discarded after each sequence — peak extra RAM ≈ 15 MB
+
+[sig] Per-layer best-ε for Signal E:
+Traceback (most recent call last):
+  File "/data/nfs/home/afayyazi/prefetch/run_experiment_qwen_signals.py", line 66, in <module>
+    main()
+  File "/data/nfs/home/afayyazi/prefetch/run_experiment_qwen_signals.py", line 48, in main
+    results = run_qwen_signals(
+  File "/data/nfs/home/afayyazi/prefetch/moe_cp_prefetch/pipeline_qwen_signals.py", line 758, in run_qwen_signals
+    print(f"  layer {l:02d}→{l+1:02d}  ε={eps_grid[ei]:.2f}")
+IndexError: only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices
