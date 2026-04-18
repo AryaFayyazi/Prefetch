@@ -10,9 +10,17 @@ moe_cp_prefetch/*
 !moe_cp_prefetch/qwen_moe_postattn_adapter.py
 !moe_cp_prefetch/pipeline_qwen_signals.py
 !moe_cp_prefetch/pipeline_qwen_dual.py
+!moe_cp_prefetch/gemma4_adapter.py
+!moe_cp_prefetch/pipeline_gemma4_dual.py
+!moe_cp_prefetch/gptoss_adapter.py
+!moe_cp_prefetch/pipeline_gptoss_dual.py
 !run_experiment_qwen_dual.py
 !run_experiment_qwen_signals.py
+!run_experiment_gemma4_dual.py
+!run_experiment_gptoss_dual.py
 !run_qwen_dual.slurm
 !run_qwen_signals.slurm
+!run_gemma4_dual.slurm
+!run_gptoss_dual.slurm
 !output_qwen_dual.log
 !output_qwen_signals.log
