@@ -78,10 +78,113 @@ from moe_cp_prefetch.pipeline_qwen_signals import (
     _loss_at_gamma_single,
 )
 
-# _DualStats is parameterised by (n_layers, K); reuse the Gemma4 definition
-from moe_cp_prefetch.pipeline_gemma4_dual import _DualStats
-
 SEP = "═" * 110
+
+
+# ════════════════════════════════════════════════════ _DualStats accumulator ══
+
+class _DualStats:
+    """Test-time accumulator for dual-signal (E_A + E_B) hybrid prefetch."""
+
+    def __init__(self, n_layers: int, K: int):
+        self.n_layers    = n_layers
+        self.K           = K
+        self.ea_r1_sum   = [0.0] * n_layers
+        self.ea_r2_sum   = [0.0] * n_layers
+        self.ea_r4_sum   = [0.0] * n_layers
+        self.ea_r8_sum   = [0.0] * n_layers
+        self.eb_set_sum  = [0.0] * n_layers
+        self.eb_loss_sum = [0.0] * n_layers
+        self.eb_cov_sum  = [0.0] * n_layers
+        self.overlap_sum = [0.0] * n_layers
+        self.union_sum   = [0.0] * n_layers
+        self.n_tok       = [0]   * n_layers
+
+    def update(self, l, p_EA, p_EB, gamma_EB, true_ids, true_scrs):
+        T, E = p_EA.shape
+        K    = true_ids.shape[1]
+
+        ea_order = np.argsort(-p_EA, axis=1)
+        ea_ranks = np.empty_like(ea_order)
+        ea_ranks[np.arange(T)[:, None], ea_order] = np.arange(1, E + 1)[None, :]
+        ea_true_ranks = ea_ranks[np.arange(T)[:, None], true_ids]
+
+        for k_hit, store in [
+            (1, self.ea_r1_sum), (2, self.ea_r2_sum),
+            (4, self.ea_r4_sum), (8, self.ea_r8_sum),
+        ]:
+            store[l] += float((ea_true_ranks == k_hit).any(axis=1).sum())
+        top1_EA = ea_order[:, 0]
+
+        eb_order    = np.argsort(-p_EB, axis=1)
+        eb_p_sorted = np.take_along_axis(p_EB, eb_order, axis=1)
+        cum_eb      = np.cumsum(eb_p_sorted, axis=1)
+        k_stars     = np.minimum((cum_eb[:, :-1] < gamma_EB).sum(axis=1) + 1, E)
+
+        eb_ranks = np.empty_like(eb_order)
+        eb_ranks[np.arange(T)[:, None], eb_order] = np.arange(1, E + 1)[None, :]
+        set_mask_EB = eb_ranks <= k_stars[:, np.newaxis]
+        eb_set_size = set_mask_EB.sum(axis=1)
+        self.eb_set_sum[l] += float(eb_set_size.sum())
+
+        eb_true_ranks = eb_ranks[np.arange(T)[:, None], true_ids]
+        sort_k = np.argsort(eb_true_ranks, axis=1)
+        sorted_true_ranks = np.take_along_axis(eb_true_ranks, sort_k, axis=1)
+        sorted_true_scrs  = np.take_along_axis(true_scrs,    sort_k, axis=1)
+        cum_covered = np.cumsum(sorted_true_scrs, axis=1)
+        _, losses = _loss_at_gamma_single(
+            eb_p_sorted, sorted_true_ranks, cum_covered, gamma_EB,
+        )
+        self.eb_loss_sum[l] += float(losses.sum())
+
+        all_covered = np.ones(T, dtype=bool)
+        for k_idx in range(K):
+            all_covered &= set_mask_EB[np.arange(T), true_ids[:, k_idx]]
+        self.eb_cov_sum[l] += float(all_covered.sum())
+
+        overlap  = set_mask_EB[np.arange(T), top1_EA]
+        union_sz = np.where(overlap, eb_set_size, eb_set_size + 1)
+        self.overlap_sum[l] += float(overlap.sum())
+        self.union_sum[l]   += float(union_sz.sum())
+        self.n_tok[l] += T
+
+    def results(self) -> dict:
+        valid = [l for l in range(self.n_layers) if self.n_tok[l] > 0]
+        if not valid:
+            return {}
+        N = sum(self.n_tok[l] for l in valid)
+
+        def _agg(store):
+            return sum(store[l] for l in valid) / N
+
+        per_layer = {}
+        for l in valid:
+            n = self.n_tok[l]
+            per_layer[l] = {
+                "ea_r1":       self.ea_r1_sum[l]   / n,
+                "ea_r2":       self.ea_r2_sum[l]   / n,
+                "ea_r4":       self.ea_r4_sum[l]   / n,
+                "ea_r8":       self.ea_r8_sum[l]   / n,
+                "avg_eb_set":  self.eb_set_sum[l]  / n,
+                "eb_loss":     self.eb_loss_sum[l] / n,
+                "eb_coverage": self.eb_cov_sum[l]  / n,
+                "overlap":     self.overlap_sum[l] / n,
+                "avg_union":   self.union_sum[l]   / n,
+            }
+
+        return {
+            "ea_r1":        _agg(self.ea_r1_sum),
+            "ea_r2":        _agg(self.ea_r2_sum),
+            "ea_r4":        _agg(self.ea_r4_sum),
+            "ea_r8":        _agg(self.ea_r8_sum),
+            "avg_eb_set":   _agg(self.eb_set_sum),
+            "eb_mean_loss": _agg(self.eb_loss_sum),
+            "eb_coverage":  _agg(self.eb_cov_sum),
+            "overlap_rate": _agg(self.overlap_sum),
+            "avg_union":    _agg(self.union_sum),
+            "n_tok":        N,
+            "per_layer":    per_layer,
+        }
 
 
 # ════════════════════════════════════════════════════════ streaming pass ══════
