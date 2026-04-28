@@ -186,6 +186,62 @@ class _DualStats:
         }
 
 
+# ══════════════════════════════════════════════ checkpoint helpers (cal) ══════
+
+def _save_cal_ckpt(
+    path: str,
+    n_batches: int,
+    carry_h: Optional[np.ndarray],
+    eps_stats_EA: list,
+    eps_stats_EB: list,
+    n_layers: int,
+    n_eps: int,
+) -> None:
+    """Atomically save calibration accumulators + carry to disk for warm restart."""
+    ckpt: dict = {"n_batches": np.array(n_batches)}
+    ckpt["carry_h"] = carry_h if carry_h is not None else np.zeros((0,), dtype=np.float32)
+    for ei in range(n_eps):
+        ea = eps_stats_EA[ei]; eb = eps_stats_EB[ei]
+        ckpt[f"ea_loss_{ei}"] = np.stack([ea.cal_loss_sum[l] for l in range(n_layers)])  # (L, G)
+        ckpt[f"ea_ntok_{ei}"] = np.array([ea.cal_n_tok[l]    for l in range(n_layers)])  # (L,)
+        ckpt[f"ea_rh_{ei}"]   = np.stack([ea.cal_rh_sum[l]   for l in range(n_layers)])  # (L, K+1)
+        ckpt[f"ea_cov_{ei}"]  = np.stack([ea.cal_cov_sum[l]  for l in range(n_layers)])  # (L, K+1)
+        ckpt[f"eb_loss_{ei}"] = np.stack([eb.cal_loss_sum[l] for l in range(n_layers)])
+        ckpt[f"eb_ntok_{ei}"] = np.array([eb.cal_n_tok[l]    for l in range(n_layers)])
+        ckpt[f"eb_rh_{ei}"]   = np.stack([eb.cal_rh_sum[l]   for l in range(n_layers)])
+        ckpt[f"eb_cov_{ei}"]  = np.stack([eb.cal_cov_sum[l]  for l in range(n_layers)])
+    # Atomic write: save to temp, then rename so a mid-write crash leaves old ckpt intact
+    tmp = path + ".writing"
+    np.savez_compressed(tmp, **ckpt)          # saves to tmp + ".npz"
+    os.replace(tmp + ".npz", path)
+
+
+def _load_cal_ckpt(
+    path: str,
+    eps_stats_EA: list,
+    eps_stats_EB: list,
+    n_layers: int,
+    n_eps: int,
+) -> tuple:
+    """Load checkpoint; restore eps_stats in-place. Returns (n_batches_done, carry_h)."""
+    data = np.load(path)
+    n_batches_done = int(data["n_batches"])
+    carry_arr = data["carry_h"]
+    carry_h: Optional[np.ndarray] = carry_arr.astype(np.float32) if carry_arr.ndim == 2 else None
+    for ei in range(n_eps):
+        ea = eps_stats_EA[ei]; eb = eps_stats_EB[ei]
+        for l in range(n_layers):
+            ea.cal_loss_sum[l] = data[f"ea_loss_{ei}"][l].copy()
+            ea.cal_n_tok[l]    = int(data[f"ea_ntok_{ei}"][l])
+            ea.cal_rh_sum[l]   = data[f"ea_rh_{ei}"][l].copy()
+            ea.cal_cov_sum[l]  = data[f"ea_cov_{ei}"][l].copy()
+            eb.cal_loss_sum[l] = data[f"eb_loss_{ei}"][l].copy()
+            eb.cal_n_tok[l]    = int(data[f"eb_ntok_{ei}"][l])
+            eb.cal_rh_sum[l]   = data[f"eb_rh_{ei}"][l].copy()
+            eb.cal_cov_sum[l]  = data[f"eb_cov_{ei}"][l].copy()
+    return n_batches_done, carry_h
+
+
 # ════════════════════════════════════════════════════════ streaming pass ══════
 
 def _qwen35_stream_pass(
@@ -211,6 +267,8 @@ def _qwen35_stream_pass(
     sig_EB_stats:   Optional[_StreamStats] = None,
     dual_stats:     Optional[_DualStats]   = None,
     mode:           str = "cal",
+    checkpoint_path:  Optional[str]          = None,
+    checkpoint_every: int                    = 25,
 ) -> None:
     """
     Single streaming pass (calibration OR test) over the dataset.
@@ -229,12 +287,21 @@ def _qwen35_stream_pass(
     """
     n_layers = tracer.n_layers   # 40 for Qwen3.5-35B-A3B
     n_eps    = len(eps_grid) if eps_grid is not None else 0
-    n_batches = 0
+    n_batches      = 0
+    n_batches_done = 0  # how many batches to fast-forward past (checkpoint resume)
 
     # Cross-sequence carry for layer 0 Signal A:
     # After each sequence we store h_in_list[n_layers-1][-1:] (last token,
     # shape (1, H)).  At l=0 of the *next* sequence we broadcast it to (T, H).
     carry_h: Optional[np.ndarray] = None   # (1, H) float32, updated each seq
+
+    # ── Restore from checkpoint (cal mode only) ───────────────────────────
+    if mode == "cal" and checkpoint_path is not None and os.path.isfile(checkpoint_path):
+        n_batches_done, carry_h = _load_cal_ckpt(
+            checkpoint_path, eps_stats_EA, eps_stats_EB, n_layers, n_eps,
+        )
+        print(f"  [{desc}] Resumed from checkpoint: {n_batches_done} batches already done.",
+              flush=True)
 
     with torch.no_grad():
         for batch in iter_token_blocks(
@@ -242,8 +309,17 @@ def _qwen35_stream_pass(
             max_samples, max_seq_len, seed,
             batch_size=1,
         ):
+            n_batches += 1
+
+            # Fast-forward: skip sequences already counted in checkpoint
+            if n_batches <= n_batches_done:
+                if n_batches % 200 == 0:
+                    print(f"  [{desc}] fast-fwd {n_batches}/{n_batches_done}", flush=True)
+                continue
+
             ids_t  = torch.tensor(batch.input_ids,      dtype=torch.long)
             mask_t = torch.tensor(batch.attention_mask, dtype=torch.long)
+            seq_len = ids_t.shape[1]
 
             # device_map='auto' places the embed layer on the first GPU
             first_device = next(model.parameters()).device
@@ -252,9 +328,6 @@ def _qwen35_stream_pass(
                 attention_mask=mask_t.to(first_device),
                 use_cache=False,
             )
-
-            n_batches += 1
-            seq_len = ids_t.shape[1]
 
             # ── per-layer signal computation ──────────────────────────────
             for l in range(n_layers):
@@ -367,6 +440,12 @@ def _qwen35_stream_pass(
                 total = n_batches * seq_len * n_layers
                 print(f"  [{desc}] batch={n_batches}  records={total}", flush=True)
 
+            # Periodic checkpoint (calibration only)
+            if (mode == "cal" and checkpoint_path is not None
+                    and n_batches % checkpoint_every == 0):
+                _save_cal_ckpt(checkpoint_path, n_batches, carry_h,
+                               eps_stats_EA, eps_stats_EB, n_layers, n_eps)
+
 
 # ════════════════════════════════════════════════════ main entry point ════════
 
@@ -461,7 +540,13 @@ def run_qwen35_dual(
     eps_stats_EB = [_StreamStats(n_layers, n_gamma, K) for _ in range(n_eps)]
 
     # ── 8. Calibration pass ────────────────────────────────────────────────
+    out_dir  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "outputs")
+    ckpt_path = os.path.normpath(os.path.join(out_dir, "qwen35_dual_cal_ckpt.npz"))
+    os.makedirs(os.path.dirname(ckpt_path), exist_ok=True)
+
     print(f"\n[q35] === Calibration pass (streaming — O(1) RAM) ===", flush=True)
+    if os.path.isfile(ckpt_path):
+        print(f"[q35] Checkpoint found → will resume: {ckpt_path}", flush=True)
     t0 = time.time()
     _qwen35_stream_pass(
         tracer, router_params, tokenizer, model,
@@ -472,8 +557,13 @@ def run_qwen35_dual(
         gamma_grid=gamma_grid,
         eps_grid=eps_grid,
         mode="cal",
+        checkpoint_path=ckpt_path,
+        checkpoint_every=25,
     )
     print(f"[q35] Calibration done in {time.time() - t0:.0f}s", flush=True)
+    if os.path.isfile(ckpt_path):
+        os.remove(ckpt_path)
+        print(f"[q35] Checkpoint removed.", flush=True)
     n_cal = eps_stats_EA[0].cal_n_tok[0] if eps_stats_EA[0].cal_n_tok else 0
     print(f"[q35] n_cal tokens per layer ≈ {n_cal}", flush=True)
 
